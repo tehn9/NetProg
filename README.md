@@ -1,7 +1,5 @@
 # NetProg
 
-kewl
-<<<<<<< HEAD
-=======
+Do not read
 
->>>>>>> do it work?
+this is horrible please don't look for the sake of your own sanity
