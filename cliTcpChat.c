@@ -73,21 +73,21 @@ int main (int argc, char *argv[])
         {
 
         /* citirea raspunsului dat de server (apel blocant pina cind serverul raspunde)*/
-        if (read (sd, msg, 100) < 0)
+        if (read (sd, msg, 150) < 0)
         {
           perror ("[client]Eroare la read() de la server.\n");
           close(sd);
           exit(-1);
         }
         /* afisam mesajul primit */
-        printf ("Server: %s\n", msg);
+        printf ("%s", msg);
         }
   }
   while(1)
   {
   bzero (msg, 100);
-  printf ("Me: ");
-  fflush (stdout);
+  //printf ("Me: ");
+  //fflush (stdout);
   fgets (msg, 100, stdin);
   
   /* trimiterea mesajului la server */
@@ -97,7 +97,7 @@ int main (int argc, char *argv[])
         return errno;
       }
       fflush(stdin);
-    }
+  }
   /* inchidem conexiunea, am terminat */
   close (sd);
 }

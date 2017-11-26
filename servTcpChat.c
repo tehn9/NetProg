@@ -7,18 +7,44 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 /* portul folosit */
 #define PORT 2024
+#define FIFO_NAME "chat"
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
+
+void serv_handle(int* clHist)
+{
+      char msg[100];
+      while(1)
+      {
+        bzero(msg, 100);
+        int fifod;
+        mknod(FIFO_NAME, S_IFIFO | 0666, 0);
+        fifod = open(FIFO_NAME, O_RDONLY);
+        read(fifod, msg , 100);
+        //fflush(stdout);
+        //strcat(msg, "BROADCAST\n");
+        //fgets(msg, 100, stdin);
+        for(int i = 0 ; clHist[i] != 0; i++)  
+        if(write(clHist[i], msg,100) <= 0)
+        {
+          perror("\nnu s-a trimis la client");
+          exit(0);
+        }
+      }
+}
 
 int main ()
 {
@@ -28,7 +54,9 @@ int main ()
   char msgrasp[100]=" ";        //mesaj de raspuns pentru client
   int sd;			//descriptorul de socket 
   int optval = 1;
-  //int 
+  int clHist[20];
+  int crtCl = 0; 
+  pthread_t write_thread;
 
   /* crearea unui socket */
   if ((sd = socket (AF_INET, SOCK_STREAM, 0)) == -1)
@@ -36,9 +64,11 @@ int main ()
       perror ("[server]Eroare la socket().\n");
       return errno;
     }
-
+  //int flags2 = fcntl(sd, F_GETFL, 0);
+  //fcntl(sd, F_SETFL, flags2 | O_NONBLOCK);
   setsockopt(sd, SOL_SOCKET, SO_REUSEADDR,&optval,sizeof(optval));
   /* pregatirea structurilor de date */
+  bzero (clHist, 20);
   bzero (&server, sizeof (server));
   bzero (&from, sizeof (from));
   
@@ -92,6 +122,7 @@ int main ()
         close (client);
       }
   /* servim in mod iterativ clientii... */
+  pthread_create(&write_thread, NULL, (void *)*serv_handle, &clHist);
   while (1)
     {
       int client;
@@ -106,10 +137,10 @@ int main ()
       // eroare la acceptarea conexiunii de la un client 
       if (client < 0)
       {
-          perror ("[server]Eroare la accept().\n");
+          //perror ("[server]Eroare la accept().\n");
           continue;
       }
-
+      clHist[crtCl++]= client;
       switch(fork())
       {
 
@@ -118,75 +149,30 @@ int main ()
             exit(-1);
 
         case 0:
+            bzero(msg, 100);
+            sprintf(msg,"Bine ai venit, User-%d\n",getpid());
+            write(client, msg, 100);
             while(1)
             {
+              char msg_out[100];
+              bzero (msg_out, 100);
               bzero (msg, 100);
               //printf("Astept %d", getpid());
               fflush(stdout);  
-              if(read(client, msg,100) <= 0)
+              if(read(client, msg, 100) <= 0)
               {
-                perror("\npierdut client");
+                printf("Clientul %d s-a deconectat!\n", getpid());
+                perror("Status");
                 exit(0);
               }
-              printf("\nUser-%d: %s",getpid(),msg);
+              int fifod = open(FIFO_NAME, O_WRONLY);
+              sprintf(msg_out,"User-%d: %s",getpid(),msg);
+              printf("%s",msg_out);
+              write(fifod, msg_out, 100);
+              //printf("\nUser-%d: %s",getpid(),msg);
             }
             close (client);
       }     //fork read
-      switch(fork())
-      {
-
-        case -1:
-            perror("err fork read");
-            exit(-1);
-
-        case 0:
-            
-              bzero (msg, 100);
-              //printf("Astept %d", getpid());
-              fflush(stdout);
-              fgets(msg, 100, stdin);  
-              if(write(client, msg,100) <= 0)
-              {
-                perror("\nnu s-a trimis la client");
-                exit(0);
-              }
-              //printf("\nUser-%d: %s",getpid(),msg)
-            close (client);
-      } 
       //close (client);
     }       /* while */
 }       /* main */
-            /*
-            // s-a realizat conexiunea, se astepta mesajul 
-            bzero (msg, 100);
-            printf ("[server]Asteptam mesajul...\n");
-            fflush (stdout);
-            
-            // citirea mesajului 
-            if (read (client, msg, 100) <= 0)
-            {
-              perror ("[server]Eroare la read() de la client.\n");
-              close (client); // inchidem conexiunea cu clientul 
-              continue;   // continuam sa ascultam 
-            }
-        
-            printf ("[server]Mesajul a fost receptionat...%s\n", msg);
-            
-            //pregatim mesajul de raspuns 
-            bzero(msgrasp,100);
-            strcat(msgrasp,"Hello ");
-            strcat(msgrasp,msg);
-            
-            printf("[server]Trimitem mesajul inapoi...%s\n",msgrasp);
-            
-            
-            // returnam mesajul clientului 
-            if (write (client, msgrasp, 100) <= 0)
-            {
-              perror ("[server]Eroare la write() catre client.\n");
-              continue;   // continuam sa ascultam 
-            }
-            else
-            printf ("[server]Mesajul a fost trasmis cu succes.\n");
-            /* am terminat cu acest client, inchidem conexiunea 
-            */
