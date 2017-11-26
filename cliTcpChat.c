@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -47,7 +48,8 @@ int main (int argc, char *argv[])
   /* familia socket-ului */
   server.sin_family = AF_INET;
   /* adresa IP a serverului */
-  server.sin_addr.s_addr = inet_addr(argv[1]);
+  //server.sin_addr.s_addr = inet_addr(argv[1]);
+  inet_pton(AF_INET, argv[1], &(server.sin_addr.s_addr));
   /* portul de conectare */
   server.sin_port = htons (port);
   
@@ -59,12 +61,34 @@ int main (int argc, char *argv[])
     }
 
   /* citirea mesajului */
+  switch(fork())
+  {
+
+    case -1:
+        perror("err fork read");
+        exit(-1);
+
+    case 0:
+        while(1)
+        {
+
+        /* citirea raspunsului dat de server (apel blocant pina cind serverul raspunde)*/
+        if (read (sd, msg, 100) < 0)
+        {
+          perror ("[client]Eroare la read() de la server.\n");
+          close(sd);
+          exit(-1);
+        }
+        /* afisam mesajul primit */
+        printf ("Server: %s\n", msg);
+        }
+  }
   while(1)
   {
   bzero (msg, 100);
-  printf ("[client]Introduceti un nume: ");
+  printf ("Me: ");
   fflush (stdout);
-  read (0, msg, 100);
+  fgets (msg, 100, stdin);
   
   /* trimiterea mesajului la server */
     if (write (sd, msg, 100) <= 0)
@@ -74,16 +98,6 @@ int main (int argc, char *argv[])
       }
       fflush(stdin);
     }
-  /* citirea raspunsului dat de server 
-     (apel blocant pina cind serverul raspunde)
-  if (read (sd, msg, 100) < 0)
-    {
-      perror ("[client]Eroare la read() de la server.\n");
-      return errno;
-    }
-  /* afisam mesajul primit */
-  //printf ("[client]Mesajul primit este: %s\n", msg);
-
   /* inchidem conexiunea, am terminat */
   close (sd);
 }

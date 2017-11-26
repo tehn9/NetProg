@@ -28,6 +28,7 @@ int main ()
   char msgrasp[100]=" ";        //mesaj de raspuns pentru client
   int sd;			//descriptorul de socket 
   int optval = 1;
+  //int 
 
   /* crearea unui socket */
   if ((sd = socket (AF_INET, SOCK_STREAM, 0)) == -1)
@@ -36,7 +37,6 @@ int main ()
       return errno;
     }
 
-  setsockopt(sd, SOL_SOCKET, SO_REUSEADDR,&optval,sizeof(optval));
   setsockopt(sd, SOL_SOCKET, SO_REUSEADDR,&optval,sizeof(optval));
   /* pregatirea structurilor de date */
   bzero (&server, sizeof (server));
@@ -63,7 +63,34 @@ int main ()
       perror ("[server]Eroare la listen().\n");
       return errno;
     }
+    /*
+  switch(fork())
+    {
 
+      case -1:
+
+          perror("err fork write");
+
+          exit(-1);
+
+      case 0:
+
+        while(1)
+        {
+            bzero (msg, 100);
+            printf("Server: ");
+            fflush (stdout);
+            fflush (stdin);
+            fgets(msg,100,0);
+            if(write(client, msg, 100) <= 0)
+              {
+                perror(nu s-a trimis la client);
+                exit(-1);
+              }
+        }
+    
+        close (client);
+      }
   /* servim in mod iterativ clientii... */
   while (1)
     {
@@ -86,21 +113,49 @@ int main ()
       switch(fork())
       {
 
-        case -1:perror("sal");break;
+        case -1:
+            perror("err fork read");
+            exit(-1);
 
         case 0:
             while(1)
             {
               bzero (msg, 100);
-              printf("Astept %d", getpid());
+              //printf("Astept %d", getpid());
               fflush(stdout);  
               if(read(client, msg,100) <= 0)
               {
-                perror("err read");
+                perror("\npierdut client");
                 exit(0);
               }
-              printf("\nMesaj %d: %s",getpid(),msg);
+              printf("\nUser-%d: %s",getpid(),msg);
             }
+            close (client);
+      }     //fork read
+      switch(fork())
+      {
+
+        case -1:
+            perror("err fork read");
+            exit(-1);
+
+        case 0:
+            
+              bzero (msg, 100);
+              //printf("Astept %d", getpid());
+              fflush(stdout);
+              fgets(msg, 100, stdin);  
+              if(write(client, msg,100) <= 0)
+              {
+                perror("\nnu s-a trimis la client");
+                exit(0);
+              }
+              //printf("\nUser-%d: %s",getpid(),msg)
+            close (client);
+      } 
+      //close (client);
+    }       /* while */
+}       /* main */
             /*
             // s-a realizat conexiunea, se astepta mesajul 
             bzero (msg, 100);
@@ -135,8 +190,3 @@ int main ()
             printf ("[server]Mesajul a fost trasmis cu succes.\n");
             /* am terminat cu acest client, inchidem conexiunea 
             */
-            close (client);
-      }     //fork
-      close (client);
-    }				/* while */
-}				/* main */
