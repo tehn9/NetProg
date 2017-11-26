@@ -1,7 +1,7 @@
 #fisier folosit pentru compilarea serverului&clientului TCP iterativ
 
 all:
-	gcc servTcpIt.c -o servTcpIt
-	gcc cliTcpIt.c -o cliTcpIt
+	gcc servTcpChat.c -o servTcpChat
+	gcc cliTcpChat.c -o cliTcpChat
 clean:
-	rm -f *~cliTcpIt servTcpIt
+	rm -f *~cliTcpChat servTcpChat
