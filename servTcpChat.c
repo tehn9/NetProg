@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 /* portul folosit */
 #define PORT 2024
@@ -30,18 +31,26 @@ void serv_handle(int* clHist)
       while(1)
       {
         bzero(msg, 100);
-        int fifod;
+        int fifod, badsd;
         mknod(FIFO_NAME, S_IFIFO | 0666, 0);
         fifod = open(FIFO_NAME, O_RDONLY);
         read(fifod, msg , 100);
+        if(!memcmp("ERR:",msg,4))
+        {
+          badsd = atoi(&msg[4]);
+          printf("EROARE SOCKET %d;", badsd);
+        }
         //fflush(stdout);
         //strcat(msg, "BROADCAST\n");
         //fgets(msg, 100, stdin);
         for(int i = 0 ; clHist[i] != 0; i++)  
-        if(write(clHist[i], msg,100) <= 0)
         {
-          perror("\nnu s-a trimis la client");
-          exit(0);
+          if (clHist[i] == badsd) continue;
+          if(write(clHist[i], msg,100) <= 0)
+          {
+            perror("\nnu s-a trimis la client");
+            exit(0);
+          }
         }
       }
 }
@@ -54,10 +63,10 @@ int main ()
   char msgrasp[100]=" ";        //mesaj de raspuns pentru client
   int sd;			//descriptorul de socket 
   int optval = 1;
-  int clHist[20];
-  int crtCl = 0; 
-  pthread_t write_thread;
-
+  int clHist[20]; //lista descriptori clienti
+  int crtCl = 0; //index curent lista
+  pthread_t write_thread; //thread de broadcast
+  signal(SIGPIPE, SIG_IGN);
   /* crearea unui socket */
   if ((sd = socket (AF_INET, SOCK_STREAM, 0)) == -1)
     {
@@ -93,34 +102,6 @@ int main ()
       perror ("[server]Eroare la listen().\n");
       return errno;
     }
-    /*
-  switch(fork())
-    {
-
-      case -1:
-
-          perror("err fork write");
-
-          exit(-1);
-
-      case 0:
-
-        while(1)
-        {
-            bzero (msg, 100);
-            printf("Server: ");
-            fflush (stdout);
-            fflush (stdin);
-            fgets(msg,100,0);
-            if(write(client, msg, 100) <= 0)
-              {
-                perror(nu s-a trimis la client);
-                exit(-1);
-              }
-        }
-    
-        close (client);
-      }
   /* servim in mod iterativ clientii... */
   pthread_create(&write_thread, NULL, (void *)*serv_handle, &clHist);
   while (1)
@@ -150,6 +131,7 @@ int main ()
 
         case 0:
             bzero(msg, 100);
+            printf("[Server] User nou cu numele : User-%d\n",getpid());
             sprintf(msg,"Bine ai venit, User-%d\n",getpid());
             write(client, msg, 100);
             while(1)
@@ -157,15 +139,20 @@ int main ()
               char msg_out[100];
               bzero (msg_out, 100);
               bzero (msg, 100);
+              int fifod = open(FIFO_NAME, O_WRONLY);
               //printf("Astept %d", getpid());
               fflush(stdout);  
               if(read(client, msg, 100) <= 0)
               {
                 printf("Clientul %d s-a deconectat!\n", getpid());
+                char msg_err[50];
+                bzero(msg_err, 50);
+                sprintf(msg_err,"ERR:%d",client);
+                write(fifod,msg_err,sizeof(msg_err));
                 perror("Status");
                 exit(0);
               }
-              int fifod = open(FIFO_NAME, O_WRONLY);
+              printf("%d",client);
               sprintf(msg_out,"User-%d: %s",getpid(),msg);
               printf("%s",msg_out);
               write(fifod, msg_out, 100);
